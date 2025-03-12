@@ -25,7 +25,7 @@ public struct WrapPropertyMacro: AccessorMacro, PeerMacro {
 
         return [
             """
-            private var _\(propertyName): \(wrapperType)
+            private var $\(propertyName): \(wrapperType)
             """
         ]
     }
@@ -45,17 +45,17 @@ public struct WrapPropertyMacro: AccessorMacro, PeerMacro {
 
         return [
             """
-            @storageRestrictions(initializes: _\(propertyName))
+            @storageRestrictions(initializes: $\(propertyName))
             init(initialValue) {
-                self._\(propertyName) = .init(wrappedValue: initialValue)
+                self.$\(propertyName) = .init(wrappedValue: initialValue)
             }
             """,
             """
-            get { self._\(propertyName).wrappedValue }
+            get { self.$\(propertyName).wrappedValue }
             """,
 
             """
-            set { self._\(propertyName).wrappedValue = newValue }
+            set { self.$\(propertyName).wrappedValue = newValue }
             """,
         ]
     }
