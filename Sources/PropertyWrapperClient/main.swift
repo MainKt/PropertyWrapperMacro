@@ -1,8 +1,20 @@
 import PropertyWrapper
 
-let a = 17
-let b = 25
+@propertyWrapper struct Uppercased {
+    private var value: String
 
-let (result, code) = #stringify(a + b)
+    init(wrappedValue: String) {
+        self.value = wrappedValue.uppercased()
+    }
 
-print("The value \(result) was produced by the code \"\(code)\"")
+    var wrappedValue: String {
+        get { value }
+        set { value = newValue.uppercased() }
+    }
+}
+
+struct User {
+    @WrapProperty<Uppercased> var name: String
+}
+var user = User(name: "Saheed")
+print(user)

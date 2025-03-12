@@ -3,31 +3,69 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
 
-/// Implementation of the `stringify` macro, which takes an expression
-/// of any type and produces a tuple containing the value of that expression
-/// and the source code that produced the value. For example
-///
-///     #stringify(x + y)
-///
-///  will expand to
-///
-///     (x + y, "x + y")
-public struct StringifyMacro: ExpressionMacro {
+public struct WrapPropertyMacro: AccessorMacro, PeerMacro {
     public static func expansion(
-        of node: some FreestandingMacroExpansionSyntax,
-        in context: some MacroExpansionContext
-    ) -> ExprSyntax {
-        guard let argument = node.arguments.first?.expression else {
-            fatalError("compiler bug: the macro does not have any arguments")
+        of node: SwiftSyntax.AttributeSyntax,
+        providingPeersOf declaration: some SwiftSyntax.DeclSyntaxProtocol,
+        in context: some SwiftSyntaxMacros.MacroExpansionContext
+    ) throws -> [SwiftSyntax.DeclSyntax] {
+        guard let varDecl = declaration.as(VariableDeclSyntax.self),
+            let binding = varDecl.bindings.first,
+            let propertyName = binding.pattern.as(
+                IdentifierPatternSyntax.self)?.identifier
+        else {
+            return []
         }
 
-        return "(\(argument), \(literal: argument.description))"
+        guard
+            let wrapperType = node.attributeName.as(IdentifierTypeSyntax.self)?
+                .genericArgumentClause?
+                .arguments.first?.argument.as(IdentifierTypeSyntax.self)?.name
+        else { return [] }
+
+        return [
+            """
+            private var _\(propertyName): \(wrapperType)
+            """
+        ]
+    }
+
+    public static func expansion(
+        of node: SwiftSyntax.AttributeSyntax,
+        providingAccessorsOf declaration: some SwiftSyntax.DeclSyntaxProtocol,
+        in context: some SwiftSyntaxMacros.MacroExpansionContext
+    ) throws -> [SwiftSyntax.AccessorDeclSyntax] {
+        guard let varDecl = declaration.as(VariableDeclSyntax.self),
+            let binding = varDecl.bindings.first,
+            let propertyName = binding.pattern.as(
+                IdentifierPatternSyntax.self)?.identifier
+        else {
+            return []
+        }
+
+        return [
+            """
+            @storageRestrictions(initializes: _\(propertyName))
+            init(initialValue) {
+                self._\(propertyName) = .init(wrappedValue: initialValue)
+            }
+            """,
+            """
+            get { self._\(propertyName).wrappedValue }
+            """,
+
+            """
+            set { self._\(propertyName).wrappedValue = newValue }
+            """,
+        ]
     }
 }
 
 @main
 struct PropertyWrapperPlugin: CompilerPlugin {
     let providingMacros: [Macro.Type] = [
-        StringifyMacro.self,
+        WrapPropertyMacro.self,
     ]
 }
+
+
